@@ -1,7 +1,18 @@
 #!/bin/bash
 
+# fun first: chmod +x click-once-linux-mac.sh
 # Generate a random password (12 characters, using lowercase letters and numbers)
-RANDOM_PASSWORD=$(tr -dc 'a-z0-9' </dev/urandom | head -c 12)
+# RANDOM_PASSWORD=$(tr -dc 'a-z0-9' </dev/urandom | head -c 12)
+RANDOM_PASSWORD=""
+for i in {1..12}; do
+    rand=$((RANDOM % 36))
+    if [ $rand -lt 10 ]; then
+        randchar=$(printf "\\$(printf '%03o' $((rand + 48)))")
+    else
+        randchar=$(printf "\\$(printf '%03o' $((rand + 87)))")
+    fi
+    RANDOM_PASSWORD="${RANDOM_PASSWORD}${randchar}"
+done
 
 # Check for .env file
 if [ -f .env ]; then
@@ -11,7 +22,8 @@ if [ -f .env ]; then
         cp .env .env.bak
 
         # Update the password in the .env file
-        sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$RANDOM_PASSWORD/" .env
+        # sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$RANDOM_PASSWORD/" .env
+        sed -i.bak "s/^DB_PASSWORD=.*/DB_PASSWORD=${RANDOM_PASSWORD}/" .env
         echo "DB_PASSWORD updated in .env"
 
         # Display the newly generated password
