@@ -1,0 +1,57 @@
+version: '1.0'
+
+services:
+  web:
+    image: ngochoaitn/gpm-login-private-server:beta-test-multi-arch
+    ports:
+      - "80:80"
+    depends_on:
+      - mysql
+    networks:
+        - sail
+    volumes:
+      - ./.env:/var/www/html/.env
+      - web_storage:/var/www/html/storage
+  mysql:
+    image: 'mysql/mysql-server:8.0'
+    # ports:
+    #     - '${FORWARD_DB_PORT:-3306}:3306'
+    environment:
+        MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+        MYSQL_ROOT_HOST: '%'
+        MYSQL_DATABASE: '${DB_DATABASE}'
+        MYSQL_USER: '${DB_USERNAME}'
+        MYSQL_PASSWORD: '${DB_PASSWORD}'
+        MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+        - ./gpmlogin.sql:/docker-entrypoint-initdb.d/gpmlogin.sql
+        - db_data:/var/lib/mysql
+    networks:
+        - sail
+    healthcheck:
+        test:
+            - CMD
+            - mysqladmin
+            - ping
+            - '-p${DB_PASSWORD}'
+        retries: 3
+        timeout: 5s
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    ports:
+        - "8081:80"
+    environment:
+        - PMA_HOSTS=mysql
+        - PMA_PORT=3306
+        - PMA_USER=${DB_USERNAME}
+        - PMA_PASSWORD=${DB_PASSWORD}
+    networks:
+        - sail
+networks:
+    sail:
+        driver: bridge
+volumes:
+    db_data:
+        driver: local
+    web_storage:
+        driver: local
