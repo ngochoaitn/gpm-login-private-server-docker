@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+if not exist .env (
+    copy .env.example .env
+)
 :: Generate a random password (12 characters, using lowercase letters and numbers)
 for /l %%x in (1,1,12) do (
     set /a "rand=!random! %% 36"
@@ -18,8 +21,6 @@ if exist .env (
     :: Check if DB_PASSWORD exists and is set to 'password'
     for /f "tokens=1,* delims==" %%a in ('findstr /b /c:"DB_PASSWORD=" .env') do (
         if "%%b"=="password" (
-            :: Backup the .env file
-            copy .env .env.bak
             :: Update the password in the .env file
             powershell -Command "(gc .env) -replace '^DB_PASSWORD=.*', 'DB_PASSWORD=%RANDOM_PASSWORD%' | Out-File -encoding ASCII .env"
             echo DB_PASSWORD updated in .env

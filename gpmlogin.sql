@@ -132,6 +132,9 @@ CREATE TABLE `settings` (
   `value` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+INSERT INTO `settings` (`name`, `value`) VALUES
+('storage_type', 'hosting');
+
 -- --------------------------------------------------------
 
 --
