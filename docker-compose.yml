@@ -2,7 +2,7 @@ version: '1.0'
 
 services:
   web:
-    image: ngochoaitn/gpm-login-private-server:beta-test-multi-arch
+    image: ngochoaitn/gpm-login-private-server:latest
     ports:
       - "80:80"
     depends_on:
@@ -12,6 +12,8 @@ services:
     volumes:
       - ./.env:/var/www/html/.env
       - web_storage:/var/www/html/storage
+    restart: unless-stopped
+
   mysql:
     image: 'mysql/mysql-server:8.0'
     # ports:
@@ -36,6 +38,8 @@ services:
             - '-p${DB_PASSWORD}'
         retries: 3
         timeout: 5s
+    restart: unless-stopped
+
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
@@ -43,10 +47,12 @@ services:
     environment:
         - PMA_HOSTS=mysql
         - PMA_PORT=3306
-        - PMA_USER=${DB_USERNAME}
-        - PMA_PASSWORD=${DB_PASSWORD}
+        # - PMA_USER=${DB_USERNAME}
+        # - PMA_PASSWORD=${DB_PASSWORD}
     networks:
         - sail
+    restart: unless-stopped
+
 networks:
     sail:
         driver: bridge
@@ -55,3 +61,7 @@ volumes:
         driver: local
     web_storage:
         driver: local
+        # driver_opts:
+        #   type: none
+        #   o: bind
+        #   device: D:\profiles
