@@ -1,8 +1,14 @@
 #!/bin/bash
 
-# fun first: chmod +x click-once-linux-mac.sh
+##############################################
+# RUN FIRST: chmod +x click-once-linux-mac.sh
+##############################################
+
+if [ ! -f .env ]; then
+    cp .env.example .env
+fi
+
 # Generate a random password (12 characters, using lowercase letters and numbers)
-# RANDOM_PASSWORD=$(tr -dc 'a-z0-9' </dev/urandom | head -c 12)
 RANDOM_PASSWORD=""
 for i in {1..12}; do
     rand=$((RANDOM % 36))
@@ -18,9 +24,6 @@ done
 if [ -f .env ]; then
     # Check if DB_PASSWORD exists and is set to 'password'
     if grep -q "^DB_PASSWORD=password" .env; then
-        # Backup the .env file
-        cp .env .env.bak
-
         # Update the password in the .env file
         # sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$RANDOM_PASSWORD/" .env
         sed -i.bak "s/^DB_PASSWORD=.*/DB_PASSWORD=${RANDOM_PASSWORD}/" .env
