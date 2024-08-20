@@ -50,5 +50,4 @@ fi
 docker-compose pull
 docker-compose up -d
 
-# Wait for MySQL to start
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1

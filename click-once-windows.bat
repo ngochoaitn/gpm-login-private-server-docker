@@ -1,6 +1,15 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+:: Check if Docker is installed
+docker --version >nul 2>&1
+
+:: If Docker is not installed, exit the script
+if %ERRORLEVEL% neq 0 (
+    echo Docker is not installed. Please install Docker and try again.
+    exit /b 1
+)
+
 if not exist .env (
     copy .env.example .env
 )
@@ -34,11 +43,9 @@ if exist .env (
 )
 
 :: Restart Docker Compose with the new password
-:: docker-compose down
+docker-compose pull
 docker-compose up -d
 
-:: Wait for MySQL to start
-timeout /t 5 /nobreak > nul
+echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1
 
 endlocal
-pause
