@@ -79,4 +79,9 @@ fi
 sudo docker-compose pull
 sudo docker-compose up -d
 
+sleep 5
+
+sudo docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
+sudo docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1

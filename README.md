@@ -1,4 +1,7 @@
 # Tested on Ubuntu 22.04, mac M1, Windows 11
+- Private server: default port 80
+- phpMyAdmin: default port 8081
+
 
 ## 1. Ubuntu 22.04 (Run in terminal)
 ```
