@@ -27,25 +27,25 @@ then
     sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
 
-    echo "Adding user to docker group..."
-    sudo usermod -aG docker $USER
+    # echo "Adding user to docker group..."
+    # sudo usermod -aG docker $USER
 
-    echo "Creating Docker Compose service..."
+    # echo "Creating Docker Compose service..."
+# sudo tee /etc/systemd/system/docker-compose-app.service > /dev/null << 'EOF'
+# [Unit]
+# Description=Docker Compose Application
+# After=network.target
 
-sudo tee /etc/systemd/system/docker-compose-app.service > /dev/null << 'EOF'
-[Unit]
-Description=Docker Compose Application
-After=network.target
+# [Service]
+# Type=oneshot
+# RemainAfterExit=true
+# ExecStart=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml up
+# ExecStop=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml down
 
-[Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml up
-ExecStop=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml down
+# [Install]
+# WantedBy=multi-user.target
+# EOF
 
-[Install]
-WantedBy=multi-user.target
-EOF
     echo "Reloading systemd configuration..."
     sudo systemctl daemon-reload
 
