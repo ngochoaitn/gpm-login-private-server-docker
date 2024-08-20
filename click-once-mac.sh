@@ -56,7 +56,7 @@ docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/storage
 # Check if APP_KEY is empty in .env file
 if grep -q "^APP_KEY=$" .env; then
     echo create APP_KEY
-    sudo docker exec -it "${CURRENT_DIR}-web-1" php artisan key:generate
+    docker exec -it "${CURRENT_DIR}-web-1" php artisan key:generate
 fi
 
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1

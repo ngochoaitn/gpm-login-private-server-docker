@@ -83,8 +83,8 @@ sleep 5
 
 CURRENT_DIR=$(basename "$PWD")
 echo "Current directory: $CURRENT_DIR"
-docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/.env
-docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/storage
+sudo docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/.env
+sudo docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/storage
 # Check if APP_KEY is empty in .env file
 if grep -q "^APP_KEY=$" .env; then
     echo create APP_KEY
