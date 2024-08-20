@@ -2,11 +2,11 @@
 setlocal EnableDelayedExpansion
 
 :: Check if Docker is installed
-docker --version >nul 2>&1
+docker-conpose --version >nul 2>&1
 
 :: If Docker is not installed, exit the script
 if %ERRORLEVEL% neq 0 (
-    echo Docker is not installed. Please install Docker and try again.
+    echo Docker compose is not installed. Please install Docker and try again.
     exit /b 1
 )
 

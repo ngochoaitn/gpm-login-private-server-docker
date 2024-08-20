@@ -1,13 +1,12 @@
 #!/bin/bash
 
-##############################################
+# ##############################################
 # RUN FIRST: chmod +x click-once-linux-mac.sh
 ##############################################
-
 # Check if Docker is installed or not
-if ! command -v docker &> /dev/null
+if ! command -v docker-compose &> /dev/null
 then
-    echo "Docker is not installed."
+    echo "Docker comnpose is not installed."
     exit 1
 fi
 
