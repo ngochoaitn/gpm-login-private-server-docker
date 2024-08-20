@@ -50,7 +50,7 @@ chmod +x click-once-mac.sh
 - Bước 6 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
 #### Các bước đầy đủ sử dụng cho tất cả các hệ điều hành khác
-- Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
+- Bước 1: Cài đặt Docker và Docker compose (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
 - Bước 2: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
 - Bước 3: Sao chép `.env.example` thành `.env`
 - Bước 4: Thay đổi `DB_PASSWORD` trong tệp `.env`

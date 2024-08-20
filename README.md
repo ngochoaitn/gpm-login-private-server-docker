@@ -49,7 +49,7 @@ chmod +x click-once-mac.sh
 - Step 6 (optional): Change the Docker resource path
 
 #### Full step use for other OS
-- Step 1: Install [Docker desktop](https://www.docker.com/products/docker-desktop/) (verify by running the commands `docker --version` and `docker-compose --version`)
+- Step 1: Install Docker and Docker compose (verify by running the commands `docker --version` and `docker-compose --version`)
 - Step 2: [Download](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) or clone this repository
 - Step 3: Copy `.env.example` to `.env`
 - Step 4: Change `DB_PASSWORD` in `.env` file
