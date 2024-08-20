@@ -36,7 +36,14 @@ docker-compose pull
 docker-compose up -d
 ```
 
-## 3. Error permission denied on web:
+## 3. Custom port web and myPhpAdmin
+- Step1: Change WEB_PORT and MPA_PORT in .env file
+- Step 2: Run command
+```
+docker-compose pull
+docker-compose up -d
+```
+## 4. Error permission denied on web:
 Open terrminal run command (on Windows remove "sudo" in command):
 ```
 sudo docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
