@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##############################################
-# RUN FIRST: chmod +x click-once-linux-mac.sh
+# RUN FIRST: chmod +x click-once-ubuntu22_04.sh
 ##############################################
 
 # Check if Docker is installed or not
@@ -31,21 +31,21 @@ then
     sudo usermod -aG docker $USER
 
     echo "Creating Docker Compose service..."
-    sudo tee /etc/systemd/system/docker-compose-app.service > /dev/null <<EOF
-    [Unit]
-    Description=Docker Compose Application
-    After=network.target
 
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStart=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml up
-    ExecStop=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml down
+sudo tee /etc/systemd/system/docker-compose-app.service > /dev/null << 'EOF'
+[Unit]
+Description=Docker Compose Application
+After=network.target
 
-    [Install]
-    WantedBy=multi-user.target
-    EOF
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml up
+ExecStop=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml down
 
+[Install]
+WantedBy=multi-user.target
+EOF
     echo "Reloading systemd configuration..."
     sudo systemctl daemon-reload
 
