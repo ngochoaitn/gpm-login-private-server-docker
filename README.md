@@ -12,6 +12,7 @@ chmod +x click-once-ubuntu-22-04.sh
 ## 2. Other OS
 #### 2.1. Requirement
 - Docker and docker compose (check by command ``` docker --version ``` and ``` docker-compose --version ```).
+- Change docker resource path
 
 #### 2.2. Windows
 - Step 1: Download or clone this git
