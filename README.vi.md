@@ -13,7 +13,7 @@ sudo apt install -y git
 git clone https://github.com/ngochoaitn/gpm-login-private-server-docker.git
 cd gpm-login-private-server-docker
 chmod +x click-once-ubuntu-22-04.sh
-./click-once-ubuntu-22-04.sh
+sudo ./click-once-ubuntu-22-04.sh
 ```
 - Bước 2 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 
@@ -35,7 +35,7 @@ chmod +x click-once-mac.sh
 ```
 - Bước 4 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 - Bước 5 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
-- Bước 6: Thay đổi đường dẫn Resources Docker (tùy chọn)
+- Bước 6 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
 #### Các bước đầy đủ sử dụng cho tất cả các hệ điều hành khác
 - Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
@@ -65,6 +65,7 @@ docker-compose up -d
 
 ## Khắc phục lỗi "Permission Denied" trên Web
 Mở terminal và chạy lệnh sau (có thể cần sử dụng sudo):
+Thay `gpm-login-private-server-docker` thành tên thư mục hiện tại
 ```
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage

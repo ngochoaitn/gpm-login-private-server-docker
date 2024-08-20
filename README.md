@@ -13,7 +13,7 @@ sudo apt install -y git
 git clone https://github.com/ngochoaitn/gpm-login-private-server-docker.git
 cd gpm-login-private-server-docker
 chmod +x click-once-ubuntu-22-04.sh
-./click-once-ubuntu-22-04.sh
+sudo ./click-once-ubuntu-22-04.sh
 ```
 - Step 2 (optional): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
 
@@ -42,6 +42,7 @@ chmod +x click-once-mac.sh
 - Step 3: Copy `.env.example` to `.env`
 - Step 4: Change `DB_PASSWORD` in `.env` file
 - Step 5: Run the command (you may need to use sudo)
+Replace `gpm-login-private-server-docker` with the current folder name.
 ```
 docker-compose pull
 docker-compose up -d
@@ -64,6 +65,7 @@ docker-compose up -d
 
 ## Fix "Permission Denied" Error on Web
 Open the terminal and run the following command (you may need to use sudo):
+Replace `gpm-login-private-server-docker` with the current folder name.
 ```
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage

@@ -57,15 +57,17 @@ docker-compose up -d
 
 timeout /t 5 /nobreak > nul
 
-docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
-docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+for %%I in (.) do set CURRENT_DIR=%%~nI
+echo Current directory: %CURRENT_DIR%
+docker exec -it %CURRENT_DIR%-web-1 chmod 777 /var/www/html/.env
+docker exec -it %CURRENT_DIR%-web-1 chmod 777 /var/www/html/storage
 
 :: Check if APP_KEY is empty in .env file
 for /f "tokens=1,* delims==" %%a in ('findstr /b /c:"APP_KEY=" .env') do (
     if "%%b"=="" (
         :: Generate the APP_KEY
         echo create APP_KEY
-        docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
+        docker exec -it %CURRENT_DIR%-web-1 php artisan key:generate
     )
 )
 

@@ -49,12 +49,14 @@ fi
 docker-compose pull
 docker-compose up -d
 
-docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
-docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+CURRENT_DIR=$(basename "$PWD")
+echo "Current directory: $CURRENT_DIR"
+docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/.env
+docker exec -it "${CURRENT_DIR}-web-1" chmod 777 /var/www/html/storage
 # Check if APP_KEY is empty in .env file
 if grep -q "^APP_KEY=$" .env; then
     echo create APP_KEY
-    sudo docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
+    sudo docker exec -it "${CURRENT_DIR}-web-1" php artisan key:generate
 fi
 
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1
