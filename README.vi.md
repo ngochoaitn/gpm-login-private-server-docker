@@ -1,0 +1,71 @@
+[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.md)
+[![vi](https://img.shields.io/badge/lang-vi-red.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.vi.md)
+
+# Đã thử nghiệm trên Ubuntu 22.04, mac M1, Windows 11
+- Private server: cổng mặc định 80
+- phpMyAdmin: cổng mặc định 8081
+
+## Các bước cài đặt cho từng hệ điều hành
+#### Ubuntu 22.04
+- Bước 1: Chạy lệnh
+```
+sudo apt install -y git
+git clone https://github.com/ngochoaitn/gpm-login-private-server-docker.git
+cd gpm-login-private-server-docker
+chmod +x click-once-ubuntu-22-04.sh
+./click-once-ubuntu-22-04.sh
+```
+- Bước 2 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+
+#### Windows
+- Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
+- Bước 2 (tùy chọn): Thay đổi đường dẫn Resources Docker
+- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 4: Nhấp đúp vào tệp `click-once-windows.bat`
+- Bước 5 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 6 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+
+#### macOS
+- Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
+- Bước 2: Thay đổi đường dẫn Resources Docker (tùy chọn)
+- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 4: Chạy lệnh (có thể cần sử dụng sudo)
+```
+chmod +x click-once-mac.sh
+./click-once-mac.sh
+```
+- Bước 5 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 6 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+
+#### Các bước đầy đủ sử dụng cho tất cả các hệ điều hành khác
+- Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
+- Bước 2 (tùy chọn): Thay đổi đường dẫn Resources Docker
+- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 4: Sao chép `.env.example` thành `.env`
+- Bước 5: Thay đổi `DB_PASSWORD` trong tệp `.env`
+- Bước 6: Chạy lệnh (có thể cần sử dụng sudo)
+```
+docker-compose pull
+docker-compose up -d
+
+docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
+docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
+```
+- Bước 7 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 8 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+
+## Thay đổi cổng web và phpMyAdmin
+- Bước 1: Thay đổi giá trị WEB_PORT và PMA_PORT trong tệp .env
+- Bước 2: Chạy lệnh
+```
+docker-compose pull
+docker-compose up -d
+```
+
+## Khắc phục lỗi "Permission Denied" trên Web
+Mở terminal và chạy lệnh sau (có thể cần sử dụng sudo):
+```
+docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
+docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+```

@@ -5,7 +5,7 @@
 ##############################################
 
 # Check if Docker is installed or not
-if ! command -v docker-compose &> /dev/null
+if ! command -v docker-compose &> /dev/null || ! command -v docker &> /dev/null
 then
     echo "Installing docker-compose"
 
@@ -83,5 +83,10 @@ sleep 5
 
 sudo docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 sudo docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
+# Check if APP_KEY is empty in .env file
+if grep -q "^APP_KEY=$" .env; then
+    echo create APP_KEY
+    sudo docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
+fi
 
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1

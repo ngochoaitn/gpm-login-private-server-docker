@@ -2,9 +2,18 @@
 setlocal EnableDelayedExpansion
 
 :: Check if Docker is installed
-docker-conpose --version >nul 2>&1
+docker-compose --version >nul 2>&1
 
 :: If Docker is not installed, exit the script
+docker --version >nul 2>&1
+
+:: If Docker is not installed, exit the script
+if %ERRORLEVEL% neq 0 (
+    echo Docker is not installed. Please install Docker and try again.
+    exit /b 1
+)
+
+
 if %ERRORLEVEL% neq 0 (
     echo Docker compose is not installed. Please install Docker and try again.
     exit /b 1
@@ -51,6 +60,17 @@ timeout /t 5 /nobreak > nul
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 
+:: Check if APP_KEY is empty in .env file
+for /f "tokens=1,* delims==" %%a in ('findstr /b /c:"APP_KEY=" .env') do (
+    if "%%b"=="" (
+        :: Generate the APP_KEY
+        echo create APP_KEY
+        docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
+    )
+)
+
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1
 
 endlocal
+
+pause
