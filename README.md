@@ -36,8 +36,8 @@ docker-compose pull
 docker-compose up -d
 ```
 
-## 3. Custom port web and myPhpAdmin
-- Step1: Change WEB_PORT and MPA_PORT in .env file
+## 3. Custom port web and phpMyAdmin
+- Step1: Change WEB_PORT and PMA_PORT in .env file
 - Step 2: Run command
 ```
 docker-compose pull
