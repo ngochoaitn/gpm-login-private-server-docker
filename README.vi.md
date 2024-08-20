@@ -7,7 +7,7 @@
 
 ## Các bước cài đặt cho từng hệ điều hành
 #### Ubuntu 22.04
-- Bước 1: Chạy lệnh
+- Bước 1: Chạy lệnh (có thể cần sử dụng sudo)
 ```
 sudo apt install -y git
 git clone https://github.com/ngochoaitn/gpm-login-private-server-docker.git
@@ -19,31 +19,30 @@ chmod +x click-once-ubuntu-22-04.sh
 
 #### Windows
 - Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
-- Bước 2 (tùy chọn): Thay đổi đường dẫn Resources Docker
-- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
-- Bước 4: Nhấp đúp vào tệp `click-once-windows.bat`
-- Bước 5 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
-- Bước 6 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 2: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 3: Nhấp đúp vào tệp `click-once-windows.bat`
+- Bước 4 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 5 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 6 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
 #### macOS
 - Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
-- Bước 2: Thay đổi đường dẫn Resources Docker (tùy chọn)
-- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
-- Bước 4: Chạy lệnh (có thể cần sử dụng sudo)
+- Bước 2: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 3: Chạy lệnh
 ```
 chmod +x click-once-mac.sh
 ./click-once-mac.sh
 ```
-- Bước 5 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
-- Bước 6 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 4 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 5 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 6: Thay đổi đường dẫn Resources Docker (tùy chọn)
 
 #### Các bước đầy đủ sử dụng cho tất cả các hệ điều hành khác
 - Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
-- Bước 2 (tùy chọn): Thay đổi đường dẫn Resources Docker
-- Bước 3: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
-- Bước 4: Sao chép `.env.example` thành `.env`
-- Bước 5: Thay đổi `DB_PASSWORD` trong tệp `.env`
-- Bước 6: Chạy lệnh (có thể cần sử dụng sudo)
+- Bước 2: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
+- Bước 3: Sao chép `.env.example` thành `.env`
+- Bước 4: Thay đổi `DB_PASSWORD` trong tệp `.env`
+- Bước 5: Chạy lệnh (có thể cần sử dụng sudo)
 ```
 docker-compose pull
 docker-compose up -d
@@ -52,8 +51,9 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
 ```
-- Bước 7 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
-- Bước 8 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 6 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 7 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
+- Bước 8 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
 ## Thay đổi cổng web và phpMyAdmin
 - Bước 1: Thay đổi giá trị WEB_PORT và PMA_PORT trong tệp .env
