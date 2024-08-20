@@ -4,6 +4,13 @@
 # RUN FIRST: chmod +x click-once-linux-mac.sh
 ##############################################
 
+# Check if Docker is installed or not
+if ! command -v docker &> /dev/null
+then
+    echo "Docker is not installed."
+    exit 1
+fi
+
 if [ ! -f .env ]; then
     cp .env.example .env
 fi
@@ -40,7 +47,8 @@ fi
 
 # Restart Docker Compose with the new password
 # docker-compose down
+docker-compose pull
 docker-compose up -d
 
 # Wait for MySQL to start
-sleep 5
+echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1
