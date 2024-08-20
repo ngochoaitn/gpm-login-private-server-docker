@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##############################################
-# RUN FIRST: chmod +x click-once-ubuntu22_04.sh
+# RUN FIRST: chmod +x click-once-ubuntu-22-04.sh
 ##############################################
 
 # Check if Docker is installed or not
@@ -30,31 +30,14 @@ then
     # echo "Adding user to docker group..."
     # sudo usermod -aG docker $USER
 
-    # echo "Creating Docker Compose service..."
-# sudo tee /etc/systemd/system/docker-compose-app.service > /dev/null << 'EOF'
-# [Unit]
-# Description=Docker Compose Application
-# After=network.target
-
-# [Service]
-# Type=oneshot
-# RemainAfterExit=true
-# ExecStart=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml up
-# ExecStop=/usr/local/bin/docker-compose -f /path/to/your/docker-compose.yml down
-
-# [Install]
-# WantedBy=multi-user.target
-# EOF
-
     echo "Reloading systemd configuration..."
     sudo systemctl daemon-reload
 
-    echo "Starting and enabling Docker Compose service..."
-    sudo systemctl start docker-compose-app
-    sudo systemctl enable docker-compose-app
+    echo "Starting and enabling Docker service..."
+    sudo systemctl enable docker
+    sudo systemctl start docker
 
     echo "Docker and Docker Compose installation completed."
-    echo "Please log out and log back in for the group changes to take effect."
 fi
 
 if [ ! -f .env ]; then
@@ -93,7 +76,7 @@ fi
 
 # Restart Docker Compose with the new password
 # docker-compose down
-docker-compose pull
-docker-compose up -d
+sudo docker-compose pull
+sudo docker-compose up -d
 
 echo Done. Private server url: http://machine_ip, eg: http://127.0.0.1
