@@ -3,7 +3,19 @@
 
 # Đã thử nghiệm trên Ubuntu 22.04, mac M1, Windows 11
 - Private server: cổng mặc định 80
+    - Tài khoản mặc định: administrator
+    - Mật khẩu mặc định: administrator
 - phpMyAdmin: cổng mặc định 8081
+
+## Yêu cần phần cứng
+#### Lưu trữ profile trên S3 (khuyến nghị)
+- RAM >= 1GB
+- CPU >= 1 nhân
+- Dung lượng ổ đĩa còn trống >= 5B
+#### Lưu trữ profile trên máy chủ
+- RAM >= 2GB
+- CPU >= 2 nhân
+- Dung lượng ổ đĩa còn trống >= 80GB
 
 ## Các bước cài đặt cho từng hệ điều hành
 #### Ubuntu 22.04
@@ -15,13 +27,13 @@ cd gpm-login-private-server-docker
 chmod +x click-once-ubuntu-22-04.sh
 sudo ./click-once-ubuntu-22-04.sh
 ```
-- Bước 2 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 2 (tùy chọn, khuyến nghị): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 
 #### Windows
 - Bước 1: Cài đặt [Docker desktop](https://www.docker.com/products/docker-desktop/) (xác minh bằng cách chạy các lệnh `docker --version` và `docker-compose --version`)
 - Bước 2: [Tải về](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) hoặc clone git này
 - Bước 3: Nhấp đúp vào tệp `click-once-windows.bat`
-- Bước 4 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 4 (tùy chọn, khuyến nghị): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 - Bước 5 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
 - Bước 6 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
@@ -33,7 +45,7 @@ sudo ./click-once-ubuntu-22-04.sh
 chmod +x click-once-mac.sh
 ./click-once-mac.sh
 ```
-- Bước 4 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 4 (tùy chọn, khuyến nghị): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 - Bước 5 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
 - Bước 6 (tùy chọn): Thay đổi đường dẫn Resources Docker
 
@@ -51,7 +63,7 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
 ```
-- Bước 6 (tùy chọn): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
+- Bước 6 (tùy chọn, khuyến nghị): Nếu bạn muốn lưu profile trên S3, đăng nhập vào private server (cổng mặc định 80) và cấu hình mục "Storage setting" của private server.
 - Bước 7 (tùy chọn): Bật Docker khởi động tự động khi khởi động máy tính
 - Bước 8 (tùy chọn): Thay đổi đường dẫn Resources Docker
 

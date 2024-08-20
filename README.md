@@ -3,7 +3,19 @@
 
 # Tested on Ubuntu 22.04, mac M1, Windows 11
 - Private server: default port 80
+    - Default username: administrator
+    - Default password: administrator
 - phpMyAdmin: default port 8081
+
+## Requirement
+#### Storing profile on S3 (recommend)
+- RAM >= 1GB
+- CPU >= 1 core
+- Free disk space >= 5GB
+#### Storing profile on host
+- RAM >= 2GB
+- CPU >= 2core
+- Free disk space >= 80GB
 
 ## Installation steps for each operating system
 #### Ubuntu 22.04
@@ -15,12 +27,12 @@ cd gpm-login-private-server-docker
 chmod +x click-once-ubuntu-22-04.sh
 sudo ./click-once-ubuntu-22-04.sh
 ```
-- Step 2 (optional): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 2 (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
 
 #### Windows
 - Step 1: Install [Docker desktop](https://www.docker.com/products/docker-desktop/) (verify by running the commands `docker --version` and `docker-compose --version`)
 - Step 2: [Download](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) or clone this repository
-- Step 3: (optional): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the GUI.
+- Step 3: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the GUI.
 - Step 4 (optional): Enable Docker to start automatically on system startup
 - Step 5 (optional): Change the Docker resource path
 
@@ -32,7 +44,7 @@ sudo ./click-once-ubuntu-22-04.sh
 chmod +x click-once-mac.sh
 ./click-once-mac.sh
 ```
-- Step 4: (optional): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 4: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
 - Step 5 (optional): Enable Docker to start automatically on system startup
 - Step 6 (optional): Change the Docker resource path
 
@@ -51,7 +63,7 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
 ```
-- Step 6: (optional): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 6: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
 - Step 7 (optional): Enable Docker to start automatically on system startup
 - Step 8 (optional): Change the Docker resource path
 
