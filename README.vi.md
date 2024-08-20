@@ -1,5 +1,5 @@
-[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.md)
-[![vi](https://img.shields.io/badge/lang-vi-red.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.vi.md)
+[![en](https://img.shields.io/badge/Language-English-blue.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.md)
+[![vi](https://img.shields.io/badge/Ng%C3%B4n%20ng%E1%BB%AF-Ti%E1%BA%BFng%20Vi%E1%BB%87t-red.svg)](https://github.com/ngochoaitn/gpm-login-private-server-docker/blob/main/README.vi.md)
 
 # Đã thử nghiệm trên Ubuntu 22.04, mac M1, Windows 11
 - Private server: cổng mặc định 80
