@@ -15,7 +15,7 @@
 #### Storing profile on host
 - RAM >= 2GB
 - CPU >= 2core
-- Free disk space >= 80GB
+- Free disk space >= 80GB (based on the number of profiles)
 
 ## Installation steps for each operating system
 #### Ubuntu 22.04
@@ -27,14 +27,15 @@ cd gpm-login-private-server-docker
 chmod +x click-once-ubuntu-22-04.sh
 sudo ./click-once-ubuntu-22-04.sh
 ```
-- Step 2 (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 2 (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the web GUI.
 
 #### Windows
 - Step 1: Install [Docker desktop](https://www.docker.com/products/docker-desktop/) (verify by running the commands `docker --version` and `docker-compose --version`)
 - Step 2: [Download](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) or clone this repository
-- Step 3: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the GUI.
-- Step 4 (optional): Enable Docker to start automatically on system startup
-- Step 5 (optional): Change the Docker resource path
+- Step 3: Double click file `click-once-windows.bat`
+- Step 4: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the web GUI.
+- Step 5 (optional): Enable Docker to start automatically on system startup
+- Step 6 (optional): Change the Docker resource path
 
 #### macOS
 - Step 1: Install [Docker desktop](https://www.docker.com/products/docker-desktop/) (verify by running the commands `docker --version` and `docker-compose --version`)
@@ -44,11 +45,11 @@ sudo ./click-once-ubuntu-22-04.sh
 chmod +x click-once-mac.sh
 ./click-once-mac.sh
 ```
-- Step 4: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 4: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the web GUI.
 - Step 5 (optional): Enable Docker to start automatically on system startup
 - Step 6 (optional): Change the Docker resource path
 
-#### Full step use for other OS
+#### Full step use for other OS (Ubuntu, CentOS, Debian, Linux...)
 - Step 1: Install Docker and Docker compose (verify by running the commands `docker --version` and `docker-compose --version`)
 - Step 2: [Download](https://github.com/ngochoaitn/gpm-login-private-server-docker/archive/refs/heads/main.zip) or clone this repository
 - Step 3: Copy `.env.example` to `.env`
@@ -63,7 +64,7 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 docker exec -it gpm-login-private-server-docker-web-1 php artisan key:generate
 ```
-- Step 6: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting"in the GUI.
+- Step 6: (optional, recommend): If you want to save the profile on S3, log in to the private server (default port 80) and configure the "Storage setting" in the web GUI.
 - Step 7 (optional): Enable Docker to start automatically on system startup
 - Step 8 (optional): Change the Docker resource path
 
@@ -76,8 +77,7 @@ docker-compose up -d
 ```
 
 ## Fix "Permission Denied" Error on Web
-Open the terminal and run the following command (you may need to use sudo):
-Replace `gpm-login-private-server-docker` with the current folder name.
+Open the terminal and run the following command (you may need to use sudo). Replace `gpm-login-private-server-docker` with the current folder name.
 ```
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
