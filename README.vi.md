@@ -11,7 +11,7 @@
 #### Lưu trữ profile trên S3 (khuyến nghị)
 - RAM >= 1GB
 - CPU >= 1 nhân
-- Dung lượng ổ đĩa còn trống >= 5B
+- Dung lượng ổ đĩa còn trống >= 5GB
 #### Lưu trữ profile trên máy chủ
 - RAM >= 2GB
 - CPU >= 2 nhân
