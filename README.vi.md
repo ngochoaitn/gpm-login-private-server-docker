@@ -6,6 +6,8 @@
     - Tài khoản mặc định: administrator
     - Mật khẩu mặc định: administrator
 - phpMyAdmin: cổng mặc định 8081
+    - Default username: root
+    - Default password: {mặc định}
 
 ## Yêu cần phần cứng
 #### Lưu trữ profile trên S3 (khuyến nghị)
