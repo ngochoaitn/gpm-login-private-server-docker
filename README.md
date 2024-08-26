@@ -7,7 +7,7 @@
     - Default password: administrator
 - phpMyAdmin: default port 8081
     - Default username: root
-    - Default password: {random}
+    - Default password: {random in file .env}
 
 ## Requirement
 #### Storing profile on S3 (recommend)
