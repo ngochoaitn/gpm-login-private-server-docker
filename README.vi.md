@@ -83,3 +83,15 @@ Mở terminal và chạy lệnh sau (có thể cần sử dụng sudo). Thay `gp
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 ```
+
+## Xứ lý trên NAS Synology
+- Bước 1:Sửa tệp .env để tài khoản cơ sở dữ liệu là root và để trống mật khẩu
+- Step 2: Mở terminal của Docker web
+- Step 3: Chạy các lệnh
+```
+apt-get update
+apt-get install nano
+nano etc/supervisor/conf.d/supervisord.conf
+```
+- Step 4: Thay đổi đoạn %(SUPERVISOR_PHP_USER)s thành root and lưu file (ctrl + X)
+- Step 5: chạy lệnh start-container

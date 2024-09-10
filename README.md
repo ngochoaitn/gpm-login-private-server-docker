@@ -84,3 +84,15 @@ Open the terminal and run the following command (you may need to use sudo). Repl
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.env
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 ```
+
+## Fix NAS Synology
+- Step 1: Edit file .env set user database is root, and leave bank password
+- Step 2: Open terminal Docker web
+- Step 3: run command
+```
+apt-get update
+apt-get install nano
+nano etc/supervisor/conf.d/supervisord.conf
+```
+- Step 4: change %(SUPERVISOR_PHP_USER)s to root and save (ctrl + X)
+- Step 5: run start-container
