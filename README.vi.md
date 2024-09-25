@@ -84,6 +84,12 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 ```
 
+## Lỗi 500 sau khi cập nhật tự động trên docker
+Mở terminal docker web và chạy lệnh
+```
+composer dump-autoload
+```
+
 ## Xứ lý trên NAS Synology
 - Bước 1:Sửa tệp .env để tài khoản cơ sở dữ liệu là root và để trống mật khẩu
 - Step 2: Mở terminal của Docker web

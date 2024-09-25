@@ -85,6 +85,12 @@ docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/.e
 docker exec -it gpm-login-private-server-docker-web-1 chmod 777 /var/www/html/storage
 ```
 
+## Error 500 after automatic update on Docker
+Open the Docker web terminal and run the command
+```
+composer dump-autoload
+```
+
 ## Fix NAS Synology
 - Step 1: Edit file .env set user database is root, and leave bank password
 - Step 2: Open terminal Docker web
