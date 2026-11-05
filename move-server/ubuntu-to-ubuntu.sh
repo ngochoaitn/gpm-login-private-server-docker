@@ -10,7 +10,8 @@
 #     không cần cài gì thêm trên nguồn.
 #
 # Việc script tự làm trên máy đích:
-#   1. Cài docker + docker compose + rsync + sshpass (nếu thiếu)
+#   1. Cài docker + docker compose + rsync + sshpass (nếu thiếu); nguồn thiếu rsync thì
+#      thử cài, không cài được thì copy bằng 'tar qua ssh'.
 #   2. (Tuỳ chọn) Mở rộng đĩa LVM để đủ chỗ chứa dữ liệu
 #   3. Mở 1 kết nối SSH master tới nguồn (tránh iptables rate-limit trên nguồn)
 #   3b. Nếu Docker nguồn đang chạy stack: DỪNG stack nguồn trước khi copy (để DB
@@ -172,6 +173,41 @@ APP_DIR="${APP_DIR%/}"
 APP_NAME="$(basename "$APP_DIR")"
 APP_PARENT="$(dirname "$APP_DIR")"
 ok "Thư mục app trên nguồn: $APP_DIR (project=$APP_NAME)"
+
+# ------------------ rsync trên NGUỒN (cần ở cả 2 đầu) ----------------------
+# Kiểm tra TRƯỚC khi dừng stack nguồn. Thiếu thì thử cài; cài không được (VD root fs
+# read-only, không có mạng) thì chuyển sang chế độ 'tar qua ssh' (không cần cài gì trên nguồn).
+COPY_MODE="rsync"
+if ! rcmd "command -v rsync" >/dev/null 2>&1; then
+  warn "Nguồn chưa có rsync — thử cài…"
+  rcmd "export DEBIAN_FRONTEND=noninteractive;
+        if command -v apt-get >/dev/null; then (apt-get install -y -qq rsync || { apt-get update -qq && apt-get install -y -qq rsync; });
+        elif command -v dnf >/dev/null; then dnf install -y -q rsync;
+        elif command -v yum >/dev/null; then yum install -y -q rsync; fi" >/dev/null 2>&1 || true
+  if rcmd "command -v rsync" >/dev/null 2>&1; then ok "Đã cài rsync trên nguồn."
+  else
+    COPY_MODE="tar"
+    rcmd "command -v tar" >/dev/null 2>&1 || die "Nguồn không có cả rsync lẫn tar — không copy được."
+    warn "Không cài được rsync trên nguồn → dùng 'tar qua ssh' (copy toàn bộ, không resume được)."
+  fi
+fi
+command -v pv >/dev/null || _apt pv || true   # hiển thị tiến độ cho chế độ tar (không bắt buộc)
+
+# tar_pull <thư mục nguồn> <thư mục đích>: stream tar nguồn -> đích, giữ uid/gid/quyền/xattr
+tar_pull() {
+  local s="$1" d="$2" rc
+  local showp=(cat); command -v pv >/dev/null && showp=(pv -s "${3:-0}")
+  set +e
+  rcmd "tar -C '$s' --numeric-owner --xattrs --acls -cpf - ." | "${showp[@]}" \
+    | tar -C "$d" --numeric-owner --xattrs --xattrs-include='*' --acls -xpf -
+  rc=("${PIPESTATUS[@]}")
+  set -e
+  # tar nguồn trả 1 = "file changed as we read it" (copy nóng) -> chỉ cảnh báo
+  [ "${rc[0]}" -le 1 ] && [ "${rc[1]}" = 0 ] && [ "${rc[2]}" = 0 ] \
+    || die "tar copy $s lỗi (mã: ${rc[*]})."
+  [ "${rc[0]}" = 1 ] && warn "Có file thay đổi trong lúc copy $s (copy nóng)."
+  return 0
+}
 
 # --------------- Kiểm tra Docker trên NGUỒN (quyết định dừng hay copy nóng) ---
 SRC_DOCKER_OK=0; SRC_WAS_RUNNING=0
@@ -399,7 +435,11 @@ fi
 # --------------------------- Copy thư mục app -------------------------------
 log "Copy thư mục app nguồn -> đích ($APP_DIR)…"
 mkdir -p "$APP_DIR"
-rsync -aHAX --numeric-ids -e "$RS_E" "$SRC_USER@$SRC_HOST:$APP_DIR/" "$APP_DIR/"
+if [ "$COPY_MODE" = "rsync" ]; then
+  rsync -aHAX --numeric-ids -e "$RS_E" "$SRC_USER@$SRC_HOST:$APP_DIR/" "$APP_DIR/"
+else
+  tar_pull "$APP_DIR" "$APP_DIR"
+fi
 ok "Đã copy app (compose, .env, config)."
 
 # --------------------------- rsync từng volume ------------------------------
@@ -411,6 +451,17 @@ rsync_volume() {  # $1 = khoá volume trong compose
   docker volume create --label "com.docker.compose.project=$PROJ" \
          --label "com.docker.compose.volume=$k" "$dv" >/dev/null 2>&1 || true
   mkdir -p "$dst"
+  if [ "$COPY_MODE" = "tar" ]; then
+    log "tar copy volume $sv -> $dv …"
+    # đích chỉ có thể có dữ liệu khi user đã đồng ý ghi đè (xem bước kiểm tra phía trên)
+    [ "${#RSYNC_DELETE[@]}" -gt 0 ] && find "$dst" -mindepth 1 -delete
+    tar_pull "$src" "$dst" "$(src_bytes "$sv")"
+    local ns nd
+    ns=$(rcmd "find '$src' | wc -l"); nd=$(find "$dst" | wc -l)
+    if [ "$ns" = "$nd" ]; then ok "$dv OK (số file: $nd, khớp nguồn)"
+    else warn "$dv: số file nguồn=$ns đích=$nd — kiểm tra lại!"; fi
+    return 0
+  fi
   log "rsync volume $sv -> $dv …"
   rsync -aHAX --numeric-ids --info=progress2 --partial "${RSYNC_DELETE[@]}" -e "$RS_E" \
         "$SRC_USER@$SRC_HOST:$src" "$dst"
