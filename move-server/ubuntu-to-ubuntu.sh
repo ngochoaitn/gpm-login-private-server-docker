@@ -14,13 +14,16 @@
 #      thử cài, không cài được thì copy bằng 'tar qua ssh'.
 #   2. (Tuỳ chọn) Mở rộng đĩa LVM để đủ chỗ chứa dữ liệu
 #   3. Mở 1 kết nối SSH master tới nguồn (tránh iptables rate-limit trên nguồn)
-#   3b. Nếu Docker nguồn đang chạy stack: DỪNG stack nguồn trước khi copy (để DB
-#       nhất quán), copy xong START lại. Nếu Docker nguồn lỗi: copy 'nóng' như cũ.
+#   3b. Nếu Docker nguồn đang chạy stack: chỉ DỪNG ở pha chốt (xem bước 6), xong START
+#       lại ngay. Nếu Docker nguồn lỗi: copy 'nóng' như cũ.
 #   4. Copy thư mục app (docker-compose, .env, config...) nguồn -> đích
 #   5. Tự phát hiện & rsync tất cả docker volume của project (giữ nguyên uid/gid).
 #      Volume nguồn lấy theo container đang mount thật (kể cả tên cũ '<project>_<key>'),
 #      volume đích đặt đúng tên compose hiện tại sẽ dùng (VD 'gpm_login_private_server_*').
-#   6. Xác minh lại (rsync pass 2 = 0 byte + so số file)
+#   6. Copy 2 pha: pha 1 copy NÓNG khi nguồn vẫn chạy (phần lớn dữ liệu, không downtime),
+#      pha 2 dừng nguồn rồi chỉ đồng bộ phần thay đổi -> downtime nguồn rất ngắn.
+#      Đứt mạng: tự mở lại SSH + thử lại rsync, chạy tiếp từ chỗ dừng (RSYNC_RETRIES).
+#      Xác minh khi nguồn còn dừng (dry-run rsync = 0 file + so số file).
 #   7. docker compose up -d, sửa quyền, kiểm tra health (web/phpmyadmin/mysql)
 #
 # Cách dùng:
@@ -45,6 +48,8 @@ case "$_SELF_REPO" in gpm-login*) _DEF_APP="$_SELF_REPO";; *) _DEF_APP="gpm-logi
 APP_NAME="${APP_NAME:-$_DEF_APP}"  # tên thư mục app mặc định (sẽ tự dò lại)
 APP_DIR_OVERRIDE="${APP_DIR:-}"   # nếu đặt sẵn APP_DIR thì bỏ qua bước tự dò
 AUTO_EXPAND_DISK="${AUTO_EXPAND_DISK:-ask}"  # yes | no | ask
+RSYNC_RETRIES="${RSYNC_RETRIES:-100}"   # số lần thử lại khi rsync bị đứt kết nối (tự chạy tiếp từ chỗ dừng)
+RSYNC_BWLIMIT="${RSYNC_BWLIMIT:-}"     # giới hạn băng thông KiB/s (VD 7500). Có nhà mạng cắt luồng SSH chạy ~12MB/s liên tục sau ~45s
 
 SOCK="/tmp/.gpm_migrate_$$.sock"
 LOGDIR="/var/log/gpm-migrate"
@@ -61,11 +66,14 @@ SRC_STOPPED=0   # =1 khi đã DỪNG stack nguồn (để biết có cần start
 restart_src_if_needed() {
   [ "$SRC_STOPPED" = "1" ] || return 0
   log "Khởi động lại stack trên NGUỒN…"
-  if rcmd "cd '$APP_DIR' && docker compose start" >/dev/null 2>&1; then
-    SRC_STOPPED=0; ok "Đã start lại stack nguồn."
-  else
-    warn "KHÔNG start lại được stack nguồn! Hãy tự chạy trên nguồn: cd $APP_DIR && docker compose start"
-  fi
+  local i
+  for i in 1 2 3; do
+    if rcmd "cd '$APP_DIR' && docker compose start" >/dev/null 2>&1; then
+      SRC_STOPPED=0; ok "Đã start lại stack nguồn."; return 0
+    fi
+    sleep 10
+  done
+  warn "KHÔNG start lại được stack nguồn! Hãy tự chạy trên nguồn: cd $APP_DIR && docker compose start"
 }
 cleanup() {
   restart_src_if_needed   # an toàn: nếu script chết sau khi đã dừng nguồn, vẫn bật lại
@@ -113,17 +121,59 @@ ok "docker $(docker --version | awk '{print $3}' | tr -d ,) / compose $(docker c
 
 # ----------------------- Kết nối SSH master tới nguồn ------------------------
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25
-          -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -p "$SRC_PORT")
+          -o ServerAliveInterval=5 -o ServerAliveCountMax=6 -o TCPKeepAlive=yes
+          -o IPQoS=throughput -p "$SRC_PORT")
+open_master() {
+  sshpass -p "$SRC_PASS" ssh "${SSH_OPTS[@]}" \
+     -o ControlMaster=yes -o ControlPath="$SOCK" -o ControlPersist=8h \
+     -fN "$SRC_USER@$SRC_HOST"
+}
+# Kết nối master có thể bị nhà mạng cắt giữa chừng -> kiểm tra & mở lại (thử nhiều lần)
+ensure_master() {
+  ssh -o ControlPath="$SOCK" -O check "$SRC_USER@$SRC_HOST" >/dev/null 2>&1 && return 0
+  rm -f "$SOCK"
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    open_master >/dev/null 2>&1 && return 0
+    sleep 10
+  done
+  return 1
+}
 log "Mở kết nối SSH master tới nguồn $SRC_USER@$SRC_HOST:$SRC_PORT (dùng lại 1 kết nối để tránh rate-limit)…"
-sshpass -p "$SRC_PASS" ssh "${SSH_OPTS[@]}" \
-   -o ControlMaster=yes -o ControlPath="$SOCK" -o ControlPersist=8h \
-   -fN "$SRC_USER@$SRC_HOST" \
-  || die "Không mở được SSH master tới nguồn (sai mật khẩu/cổng hoặc bị chặn)."
+open_master || die "Không mở được SSH master tới nguồn (sai mật khẩu/cổng hoặc bị chặn)."
 ok "Đã mở kết nối master tới nguồn."
 RS_E="sshpass -p $(printf %q "$SRC_PASS") ssh -o ControlPath=$SOCK ${SSH_OPTS[*]}"
 
-# Chạy lệnh trên NGUỒN qua kết nối master đã mở (tái dùng, khỏi nhập lại mật khẩu)
-rcmd() { ssh -o ControlPath="$SOCK" "$SRC_USER@$SRC_HOST" "$@"; }
+# Chạy lệnh trên NGUỒN qua kết nối master (tự mở lại nếu master đã chết)
+rcmd() {
+  ensure_master || { warn "Mất kết nối SSH tới nguồn (đã thử mở lại 10 lần)." >&2; return 255; }
+  ssh -o ControlPath="$SOCK" "$SRC_USER@$SRC_HOST" "$@"
+}
+
+# rsync nguồn -> đích, tự thử lại khi đứt kết nối (--partial: chạy tiếp từ chỗ dừng)
+#   rsync_pull <src/> <dst/> [tham số rsync thêm...]
+rsync_pull() {
+  local s="$1" d="$2"; shift 2
+  local extra=(); [ -n "$RSYNC_BWLIMIT" ] && extra+=(--bwlimit="$RSYNC_BWLIMIT")
+  local n=0 rc
+  while :; do
+    ensure_master || true      # rsync tự kết nối thẳng (sshpass) nếu master chưa mở lại được
+    set +e
+    rsync -aHAX --numeric-ids --partial --timeout=60 "${extra[@]}" "$@" -e "$RS_E" \
+          "$SRC_USER@$SRC_HOST:$s" "$d"
+    rc=$?
+    set -e
+    case "$rc" in
+      0)  return 0;;
+      24) return 0;;          # file biến mất trong lúc copy nóng -> bình thường
+      1|2|4) warn "rsync lỗi tham số/cú pháp (mã $rc) — không thử lại."; return "$rc";;
+    esac
+    n=$((n+1))
+    [ "$n" -le "$RSYNC_RETRIES" ] || { warn "rsync thất bại sau $RSYNC_RETRIES lần thử lại (mã $rc)."; return "$rc"; }
+    warn "rsync bị ngắt (mã $rc) — thử lại lần $n/$RSYNC_RETRIES sau 15s (chạy tiếp từ chỗ dừng)…"
+    sleep 15
+  done
+}
 
 # ------------------------ Tự dò thư mục app trên nguồn -----------------------
 # (tái dùng master -> không mở TCP mới -> an toàn với rate-limit của nguồn)
@@ -216,7 +266,7 @@ if rcmd "docker info" >/dev/null 2>&1; then
   RUNNING_Q=$(rcmd "cd '$APP_DIR' 2>/dev/null && docker compose ps -q 2>/dev/null" 2>/dev/null || true)
   if [ -n "$RUNNING_Q" ]; then
     SRC_WAS_RUNNING=1
-    ok "Docker nguồn OK, stack đang CHẠY → sẽ DỪNG khi copy để dữ liệu nhất quán, xong START lại."
+    ok "Docker nguồn OK, stack đang CHẠY → copy nóng trước, chỉ DỪNG ngắn ở pha chốt rồi START lại."
   else
     warn "Docker nguồn OK nhưng stack không chạy → copy trực tiếp (không cần dừng)."
   fi
@@ -422,58 +472,82 @@ if [ -f "$APP_DIR/docker-compose.yml" ] && docker compose -f "$APP_DIR/docker-co
   (cd "$APP_DIR" && docker compose down) || true
 fi
 
-# ----------------- Dừng stack NGUỒN (nếu đang chạy) để copy nhất quán --------
+# ------------------------------ Hàm copy ------------------------------------
+ensure_dst_volume() {  # $1 = khoá volume: tạo volume đích, gắn label compose
+  local k="$1" dv="${DST_OF[$1]}"
+  docker volume create --label "com.docker.compose.project=$PROJ" \
+         --label "com.docker.compose.volume=$k" "$dv" >/dev/null 2>&1 || true
+  mkdir -p "$VOL_ROOT/$dv/_data"
+}
+vsrc() { echo "$VOL_ROOT/${SRC_OF[$1]}/_data/"; }
+vdst() { echo "$VOL_ROOT/${DST_OF[$1]}/_data/"; }
+
+copy_app() {
+  mkdir -p "$APP_DIR"
+  if [ "$COPY_MODE" = "rsync" ]; then rsync_pull "$APP_DIR/" "$APP_DIR/"
+  else tar_pull "$APP_DIR" "$APP_DIR"; fi
+}
+
+# Xác minh 1 volume (gọi khi nguồn ĐANG DỪNG): dry-run rsync phải 0 file + số file khớp
+verify_volume() {
+  local k="$1" src dst moved ns nd
+  src=$(vsrc "$k"); dst=$(vdst "$k")
+  ns=$(rcmd "find '$src' | wc -l" || echo "?"); nd=$(find "$dst" | wc -l)
+  if [ "$COPY_MODE" = "rsync" ]; then
+    moved=$(rsync -aHAX --numeric-ids -n --delete --stats -e "$RS_E" \
+          "$SRC_USER@$SRC_HOST:$src" "$dst" 2>/dev/null | awk -F': ' '/Number of regular files transferred/{print $2}' | tr -d ', ' || true)
+  else moved=0; fi
+  if [ "${moved:-?}" = "0" ] && [ "$ns" = "$nd" ]; then ok "${DST_OF[$k]} OK (số file: $nd, khớp nguồn)"
+  else warn "${DST_OF[$k]}: còn ${moved:-?} file khác, nguồn=$ns đích=$nd — kiểm tra lại!"; fi
+}
+
+for k in "${SRC_KEYS[@]}"; do ensure_dst_volume "$k"; done
+
+# ----- PHA 1 (chỉ rsync): copy NÓNG khi nguồn vẫn chạy -> phần lớn dữ liệu sang trước -----
+# Nguồn không bị downtime trong pha này; đứt mạng thì tự thử lại & chạy tiếp.
+if [ "$COPY_MODE" = "rsync" ]; then
+  log "PHA 1: copy app + volume khi nguồn VẪN CHẠY (không downtime)…"
+  copy_app || die "Copy thư mục app thất bại."
+  ok "Đã copy app (compose, .env, config)."
+  for k in "${SRC_KEYS[@]}"; do
+    log "rsync volume ${SRC_OF[$k]} -> ${DST_OF[$k]} (pha 1, nóng)…"
+    rsync_pull "$(vsrc "$k")" "$(vdst "$k")" --delete --info=progress2 \
+      || die "rsync pha 1 thất bại cho ${SRC_OF[$k]}. Nguồn vẫn chạy bình thường; chạy lại script sẽ tiếp tục từ chỗ dừng."
+  done
+fi
+
+# ----------------- Dừng stack NGUỒN (nếu đang chạy) để chốt dữ liệu nhất quán --------
 if [ "$SRC_WAS_RUNNING" = "1" ]; then
-  log "Dừng stack trên NGUỒN để đồng bộ nhất quán…"
+  log "Dừng stack trên NGUỒN để chốt dữ liệu nhất quán…"
   if rcmd "cd '$APP_DIR' && docker compose stop" >/dev/null 2>&1; then
-    SRC_STOPPED=1; ok "Đã dừng stack nguồn (sẽ start lại ngay sau khi copy xong)."
+    SRC_STOPPED=1; ok "Đã dừng stack nguồn (sẽ start lại ngay sau khi chốt xong)."
   else
     warn "Không dừng được stack nguồn — tiếp tục copy 'nóng' (DB có thể không nhất quán)."
   fi
 fi
 
-# --------------------------- Copy thư mục app -------------------------------
-log "Copy thư mục app nguồn -> đích ($APP_DIR)…"
-mkdir -p "$APP_DIR"
+# ----- PHA 2: chốt (rsync: chỉ phần thay đổi từ pha 1 -> nhanh; tar: copy toàn bộ) -----
 if [ "$COPY_MODE" = "rsync" ]; then
-  rsync -aHAX --numeric-ids -e "$RS_E" "$SRC_USER@$SRC_HOST:$APP_DIR/" "$APP_DIR/"
+  log "PHA 2: đồng bộ phần thay đổi khi nguồn đã dừng…"
+  copy_app || die "Copy thư mục app (pha 2) thất bại."
+  for k in "${SRC_KEYS[@]}"; do
+    log "rsync volume ${SRC_OF[$k]} -> ${DST_OF[$k]} (pha 2, chốt)…"
+    rsync_pull "$(vsrc "$k")" "$(vdst "$k")" --delete --info=progress2 \
+      || die "rsync pha 2 thất bại cho ${SRC_OF[$k]}."
+  done
 else
-  tar_pull "$APP_DIR" "$APP_DIR"
-fi
-ok "Đã copy app (compose, .env, config)."
-
-# --------------------------- rsync từng volume ------------------------------
-rsync_volume() {  # $1 = khoá volume trong compose
-  local k="$1" sv="${SRC_OF[$1]}" dv="${DST_OF[$1]}"
-  local src="$VOL_ROOT/$sv/_data/"
-  local dst="$VOL_ROOT/$dv/_data/"
-  # đăng ký volume với docker, gắn label compose để 'up' không cảnh báo/không tạo volume trống khác
-  docker volume create --label "com.docker.compose.project=$PROJ" \
-         --label "com.docker.compose.volume=$k" "$dv" >/dev/null 2>&1 || true
-  mkdir -p "$dst"
-  if [ "$COPY_MODE" = "tar" ]; then
-    log "tar copy volume $sv -> $dv …"
+  log "Copy thư mục app nguồn -> đích ($APP_DIR)…"
+  copy_app; ok "Đã copy app (compose, .env, config)."
+  for k in "${SRC_KEYS[@]}"; do
+    log "tar copy volume ${SRC_OF[$k]} -> ${DST_OF[$k]} …"
     # đích chỉ có thể có dữ liệu khi user đã đồng ý ghi đè (xem bước kiểm tra phía trên)
-    [ "${#RSYNC_DELETE[@]}" -gt 0 ] && find "$dst" -mindepth 1 -delete
-    tar_pull "$src" "$dst" "$(src_bytes "$sv")"
-    local ns nd
-    ns=$(rcmd "find '$src' | wc -l"); nd=$(find "$dst" | wc -l)
-    if [ "$ns" = "$nd" ]; then ok "$dv OK (số file: $nd, khớp nguồn)"
-    else warn "$dv: số file nguồn=$ns đích=$nd — kiểm tra lại!"; fi
-    return 0
-  fi
-  log "rsync volume $sv -> $dv …"
-  rsync -aHAX --numeric-ids --info=progress2 --partial "${RSYNC_DELETE[@]}" -e "$RS_E" \
-        "$SRC_USER@$SRC_HOST:$src" "$dst"
-  # Xác minh: pass 2 phải 0 byte, số file khớp
-  local moved; moved=$(rsync -aHAX --numeric-ids --stats "${RSYNC_DELETE[@]}" -e "$RS_E" \
-        "$SRC_USER@$SRC_HOST:$src" "$dst" 2>/dev/null | awk -F': ' '/Number of regular files transferred/{print $2}' | tr -d ', ')
-  local ns nd
-  ns=$(rcmd "find '$src' | wc -l"); nd=$(find "$dst" | wc -l)
-  if [ "${moved:-0}" = "0" ] && [ "$ns" = "$nd" ]; then ok "$dv OK (số file: $nd, đồng bộ khớp)"
-  else warn "$dv: pass2 chuyển thêm ${moved:-?} file, nguồn=$ns đích=$nd — kiểm tra lại!"; fi
-}
-for k in "${SRC_KEYS[@]}"; do rsync_volume "$k"; done
+    find "$(vdst "$k")" -mindepth 1 -delete
+    tar_pull "$(vsrc "$k")" "$(vdst "$k")" "$(src_bytes "${SRC_OF[$k]}")"
+  done
+fi
+
+log "Xác minh dữ liệu (nguồn vẫn đang dừng)…"
+for k in "${SRC_KEYS[@]}"; do verify_volume "$k"; done
 
 # --------------- Start lại stack NGUỒN ngay sau khi copy xong ----------------
 restart_src_if_needed   # giảm tối đa downtime nguồn (không đợi tới khi đích boot xong)
