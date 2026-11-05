@@ -16,7 +16,9 @@
 #   3b. Nếu Docker nguồn đang chạy stack: DỪNG stack nguồn trước khi copy (để DB
 #       nhất quán), copy xong START lại. Nếu Docker nguồn lỗi: copy 'nóng' như cũ.
 #   4. Copy thư mục app (docker-compose, .env, config...) nguồn -> đích
-#   5. Tự phát hiện & rsync tất cả docker volume của project (giữ nguyên uid/gid)
+#   5. Tự phát hiện & rsync tất cả docker volume của project (giữ nguyên uid/gid).
+#      Volume nguồn lấy theo container đang mount thật (kể cả tên cũ '<project>_<key>'),
+#      volume đích đặt đúng tên compose hiện tại sẽ dùng (VD 'gpm_login_private_server_*').
 #   6. Xác minh lại (rsync pass 2 = 0 byte + so số file)
 #   7. docker compose up -d, sửa quyền, kiểm tra health (web/phpmyadmin/mysql)
 #
@@ -25,6 +27,7 @@
 #   sudo ./ubuntu-to-ubuntu.sh           # sẽ hỏi thông tin nguồn
 #   # hoặc truyền sẵn qua biến môi trường:
 #   sudo SRC_HOST=1.2.3.4 SRC_PASS='xxx' ./ubuntu-to-ubuntu.sh
+#   # biến tuỳ chọn: APP_DIR=/root/<thư mục app>  OVERWRITE_DST=yes|no  AUTO_EXPAND_DISK=yes|no
 ###############################################################################
 set -euo pipefail
 
@@ -34,7 +37,11 @@ SRC_PORT="${SRC_PORT:-}"          # cổng SSH nguồn (trống = sẽ hỏi, m�
 SRC_USER="${SRC_USER:-}"          # user SSH nguồn (trống = sẽ hỏi, mặc định root)
 SRC_PASS="${SRC_PASS:-}"          # mật khẩu SSH nguồn
 APP_PARENT="${APP_PARENT:-/root}" # thư mục cha ưu tiên tìm app trên nguồn
-APP_NAME="${APP_NAME:-gpm-login-private-server-docker}"  # tên thư mục app mặc định (sẽ tự dò lại)
+# Tên thư mục app mặc định = tên repo chứa script này (…/<repo>/move-server/ubuntu-to-ubuntu.sh),
+# nên cùng 1 script dùng được cho cả gpm-login-private-server-docker và gpm-login-global-private-server-docker.
+_SELF_REPO="$(basename "$(dirname "$(dirname "$(readlink -f "$0")")")")"
+case "$_SELF_REPO" in gpm-login*) _DEF_APP="$_SELF_REPO";; *) _DEF_APP="gpm-login-private-server-docker";; esac
+APP_NAME="${APP_NAME:-$_DEF_APP}"  # tên thư mục app mặc định (sẽ tự dò lại)
 APP_DIR_OVERRIDE="${APP_DIR:-}"   # nếu đặt sẵn APP_DIR thì bỏ qua bước tự dò
 AUTO_EXPAND_DISK="${AUTO_EXPAND_DISK:-ask}"  # yes | no | ask
 
@@ -128,8 +135,11 @@ else
   CANDIDATES=(
     "$APP_PARENT/$APP_NAME"
     "$APP_PARENT/gpm-login-private-server-docker"
+    "$APP_PARENT/gpm-login-global-private-server-docker"
     "$APP_PARENT/gpm-login-global-private-server"
+    "/opt/$APP_NAME"
     "/opt/gpm-login-private-server-docker"
+    "/opt/gpm-login-global-private-server-docker"
     "/opt/gpm-login-global-private-server"
   )
   # 1) ưu tiên thư mục có file compose
@@ -163,69 +173,6 @@ APP_NAME="$(basename "$APP_DIR")"
 APP_PARENT="$(dirname "$APP_DIR")"
 ok "Thư mục app trên nguồn: $APP_DIR (project=$APP_NAME)"
 
-# ------------------------ Phát hiện volume trên nguồn ------------------------
-log "Kiểm tra dữ liệu trên nguồn…"
-VOL_ROOT="/var/lib/docker/volumes"
-
-# Tìm file compose trên nguồn
-SRC_COMPOSE=""
-for f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
-  if rcmd "test -f '$APP_DIR/$f'"; then SRC_COMPOSE="$APP_DIR/$f"; break; fi
-done
-[ -n "$SRC_COMPOSE" ] || die "Không thấy docker-compose.yml trên nguồn ($APP_DIR)."
-
-# Đọc nội dung compose về (chỉ đọc file → không cần docker daemon nguồn còn sống)
-_CTMP=$(mktemp)
-rcmd "cat '$SRC_COMPOSE'" > "$_CTMP" 2>/dev/null || { rm -f "$_CTMP"; die "Không đọc được compose trên nguồn."; }
-
-# Giải tên volume ON-DISK từ section 'volumes:' cấp cao nhất của compose:
-#   - có 'name:' -> dùng đúng tên đó                (bản global: gpm_login_global_private_server_*)
-#   - không có   -> mặc định '<APP_NAME>_<key>'     (bản cũ: gpm-login-private-server-docker_*)
-mapfile -t SRC_VOLS < <(
-  awk -v app="$APP_NAME" '
-    function trim(s){ gsub(/^[ \t]+|[ \t]+$/,"",s); return s }
-    /^volumes:[ \t]*$/ { invol=1; next }
-    /^[^ \t]/ { if (invol) invol=0 }                     # dòng cột 0 khác => hết section volumes
-    invol {
-      if ($0 ~ /^[ \t]+[A-Za-z0-9._-]+:[ \t]*$/) {       # khoá volume: "  ten:" (không gì phía sau)
-        k=trim($0); sub(/:$/,"",k); curkey=k; order[++n]=k; name[k]=""; next
-      }
-      if (curkey!="" && $0 ~ /^[ \t]+name:[ \t]*/) {      # override "name:"
-        v=$0; sub(/^[ \t]+name:[ \t]*/,"",v); gsub(/"/,"",v); name[curkey]=trim(v)
-      }
-    }
-    END { for(i=1;i<=n;i++){ k=order[i]; print (name[k]!="" ? name[k] : app"_"k) } }
-  ' "$_CTMP"
-)
-rm -f "$_CTMP"
-
-# Fallback: parse không ra gì -> quay lại cách cũ (glob theo APP_NAME)
-if [ "${#SRC_VOLS[@]}" -eq 0 ]; then
-  warn "Không phân tích được volume từ compose — thử dò theo '${APP_NAME}_*'."
-  mapfile -t SRC_VOLS < <(rcmd "ls -d $VOL_ROOT/${APP_NAME}_*/ 2>/dev/null | xargs -n1 basename 2>/dev/null" || true)
-fi
-
-# Chỉ giữ volume THỰC SỰ có trên đĩa nguồn
-_present=()
-for v in "${SRC_VOLS[@]}"; do
-  [ -n "$v" ] || continue
-  if rcmd "test -d '$VOL_ROOT/$v/_data'"; then _present+=("$v")
-  else warn "Bỏ qua '$v' (không thấy $VOL_ROOT/$v/_data trên nguồn)."; fi
-done
-SRC_VOLS=("${_present[@]}")
-[ "${#SRC_VOLS[@]}" -gt 0 ] || die "Không tìm thấy volume dữ liệu nào của project trên nguồn."
-
-log "Các volume sẽ chuyển:"; for v in "${SRC_VOLS[@]}"; do echo "    - $v"; done
-
-# Tổng dung lượng cần chuyển (du từng volume đã giải tên)
-NEED_BYTES=0
-for v in "${SRC_VOLS[@]}"; do
-  b=$(rcmd "du -sb '$VOL_ROOT/$v/_data' 2>/dev/null | cut -f1" || echo 0)
-  NEED_BYTES=$(( NEED_BYTES + ${b:-0} ))
-done
-NEED_H=$(numfmt --to=iec "$NEED_BYTES" 2>/dev/null || echo "${NEED_BYTES}B")
-log "Tổng dung lượng volume cần chuyển: ~$NEED_H"
-
 # --------------- Kiểm tra Docker trên NGUỒN (quyết định dừng hay copy nóng) ---
 SRC_DOCKER_OK=0; SRC_WAS_RUNNING=0
 if rcmd "docker info" >/dev/null 2>&1; then
@@ -240,6 +187,167 @@ if rcmd "docker info" >/dev/null 2>&1; then
 else
   warn "Docker nguồn KHÔNG hoạt động → copy 'nóng' như hiện tại (không dừng được; DB có thể không nhất quán)."
 fi
+
+# ------------------------ Phát hiện volume trên nguồn ------------------------
+# Vấn đề cần xử lý: tên volume trên đĩa KHÔNG nhất thiết khớp compose hiện tại.
+#   VD nguồn cài bản cũ (volume '<project>_db_data'), sau đó 'git pull' bản mới có
+#   'name: gpm_login_private_server_db_data' nhưng chưa recreate → container vẫn
+#   dùng volume tên cũ, còn compose thì trỏ tên mới (chưa tồn tại).
+# Cách làm: với MỖI khoá volume trong compose:
+#   - TÊN ĐÍCH  = tên compose sẽ dùng khi 'up' trên đích (name: nếu có, không thì <project>_<key>)
+#   - TÊN NGUỒN = volume container của project ĐANG MOUNT thật (hỏi docker nguồn);
+#                 nếu docker nguồn chết → dò trên đĩa các tên có thể, chọn cái có dữ liệu nhiều nhất.
+log "Kiểm tra dữ liệu trên nguồn…"
+VOL_ROOT="/var/lib/docker/volumes"
+
+# Tìm file compose trên nguồn
+SRC_COMPOSE=""
+for f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+  if rcmd "test -f '$APP_DIR/$f'"; then SRC_COMPOSE="$APP_DIR/$f"; break; fi
+done
+[ -n "$SRC_COMPOSE" ] || die "Không thấy docker-compose.yml trên nguồn ($APP_DIR)."
+
+# Đọc nội dung compose về (chỉ đọc file → không cần docker daemon nguồn còn sống)
+_CTMP=$(mktemp)
+rcmd "cat '$SRC_COMPOSE'" > "$_CTMP" 2>/dev/null || { rm -f "$_CTMP"; die "Không đọc được compose trên nguồn."; }
+
+# Tên project compose: COMPOSE_PROJECT_NAME (.env) > 'name:' cấp cao nhất > tên thư mục
+norm_proj() { echo "$1" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9_-'; }
+PROJ=$(rcmd "grep -E '^COMPOSE_PROJECT_NAME=' '$APP_DIR/.env' 2>/dev/null | tail -1 | cut -d= -f2-" 2>/dev/null | tr -d "\"' \r" || true)
+[ -n "$PROJ" ] || PROJ=$(sed -n 's/^name:[ \t]*//p' "$_CTMP" | head -1 | tr -d "\"' \r")
+[ -n "$PROJ" ] || PROJ="$APP_NAME"
+PROJ=$(norm_proj "$PROJ")
+LEGACY_PROJ=$(norm_proj "$APP_NAME")
+
+# Khoá volume + tên đích từ section 'volumes:' cấp cao nhất (in: "key<TAB>name-override")
+declare -A DST_OF=() SRC_OF=() SRC_RUN=()
+VKEYS=()
+while IFS=$'\t' read -r k n; do
+  [ -n "$k" ] || continue
+  VKEYS+=("$k"); DST_OF[$k]="${n:-${PROJ}_$k}"
+done < <(
+  awk '
+    function trim(s){ gsub(/^[ \t]+|[ \t]+$/,"",s); return s }
+    /^volumes:[ \t]*$/ { invol=1; next }
+    /^[^ \t#]/ { if (invol) invol=0 }                    # dòng cột 0 khác => hết section volumes
+    invol {
+      if ($0 ~ /^[ \t]+[A-Za-z0-9._-]+:[ \t]*$/) {       # khoá volume: "  ten:" (không gì phía sau)
+        k=trim($0); sub(/:$/,"",k); curkey=k; order[++n]=k; name[k]=""; next
+      }
+      if (curkey!="" && $0 ~ /^[ \t]+name:[ \t]*/) {      # override "name:"
+        v=$0; sub(/^[ \t]+name:[ \t]*/,"",v); gsub(/["\047]/,"",v); name[curkey]=trim(v)
+      }
+    }
+    END { for(i=1;i<=n;i++){ k=order[i]; printf "%s\t%s\n", k, name[k] } }
+  ' "$_CTMP"
+)
+rm -f "$_CTMP"
+
+src_has() { rcmd "test -d '$VOL_ROOT/$1/_data'" 2>/dev/null; }
+src_bytes() { local b; b=$(rcmd "du -sb '$VOL_ROOT/$1/_data' 2>/dev/null | cut -f1" 2>/dev/null || true); echo "${b:-0}"; }
+is_key() { local x; for x in "${VKEYS[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
+
+if [ "${#VKEYS[@]}" -eq 0 ]; then
+  # Fallback: parse không ra gì -> glob theo tên project, giữ nguyên tên ở đích
+  warn "Không phân tích được volume từ compose — thử dò theo '${PROJ}_*'."
+  while read -r v; do
+    [ -n "$v" ] || continue
+    k="${v#${PROJ}_}"; VKEYS+=("$k"); DST_OF[$k]="$v"; SRC_OF[$k]="$v"
+  done < <(rcmd "ls -d $VOL_ROOT/${PROJ}_*/ 2>/dev/null | xargs -rn1 basename" 2>/dev/null || true)
+fi
+
+# (1) Hỏi docker nguồn: container của project đang mount volume nào cho từng khoá
+if [ "$SRC_DOCKER_OK" = "1" ] && [ "${#VKEYS[@]}" -gt 0 ]; then
+  while IFS=$'\t' read -r v lk running; do
+    [ -n "$v" ] || continue
+    k=""
+    if [ -n "$lk" ] && is_key "$lk"; then k="$lk"
+    else
+      for x in "${VKEYS[@]}"; do
+        if [ "$v" = "${DST_OF[$x]}" ] || [[ "$v" == *"_$x" ]]; then k="$x"; break; fi
+      done
+    fi
+    [ -n "$k" ] || continue
+    # ưu tiên volume của container đang CHẠY
+    if [ -z "${SRC_OF[$k]:-}" ] || { [ "${SRC_RUN[$k]:-}" != "true" ] && [ "$running" = "true" ]; }; then
+      SRC_OF[$k]="$v"; SRC_RUN[$k]="$running"
+    fi
+  done < <(rcmd "bash -s -- '$PROJ' '$APP_DIR'" 2>/dev/null <<'REMOTE' || true
+P="$1"; D="$2"
+ids=$( { docker ps -aq --filter "label=com.docker.compose.project=$P"
+         docker ps -aq --filter "label=com.docker.compose.project.working_dir=$D"; } | sort -u )
+[ -n "$ids" ] || exit 0
+for id in $ids; do
+  st=$(docker inspect -f '{{.State.Running}}' "$id" 2>/dev/null)
+  docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$id" 2>/dev/null |
+  while read -r v; do
+    [ -n "$v" ] || continue
+    k=$(docker volume inspect -f '{{index .Labels "com.docker.compose.volume"}}' "$v" 2>/dev/null)
+    [ "$k" = "<no value>" ] && k=""
+    printf '%s\t%s\t%s\n' "$v" "$k" "$st"
+  done
+done
+REMOTE
+  )
+fi
+
+# (2) Khoá nào chưa xác định (hoặc docker nguồn chết) -> dò trên đĩa các tên có thể
+for k in "${VKEYS[@]}"; do
+  if [ -n "${SRC_OF[$k]:-}" ] && ! src_has "${SRC_OF[$k]}"; then
+    warn "Volume '${SRC_OF[$k]}' (khoá $k) không có _data trên đĩa nguồn — dò tên khác."
+    SRC_OF[$k]=""
+  fi
+  [ -n "${SRC_OF[$k]:-}" ] && continue
+  best=""; best_b=-1
+  for cand in "${DST_OF[$k]}" "${PROJ}_$k" "${LEGACY_PROJ}_$k"; do
+    [ "$cand" = "$best" ] && continue
+    if src_has "$cand"; then
+      b=$(src_bytes "$cand")
+      if [ "$b" -gt "$best_b" ]; then best="$cand"; best_b="$b"; fi
+    fi
+  done
+  if [ -n "$best" ]; then SRC_OF[$k]="$best"
+  else warn "Bỏ qua khoá volume '$k' (không thấy volume nào trên nguồn: ${DST_OF[$k]} / ${PROJ}_$k)."; fi
+done
+
+SRC_KEYS=()
+for k in "${VKEYS[@]}"; do [ -n "${SRC_OF[$k]:-}" ] && SRC_KEYS+=("$k"); done
+if [ "${#SRC_KEYS[@]}" -eq 0 ]; then
+  warn "Các volume hiện có trên nguồn:"
+  rcmd "ls -1 $VOL_ROOT 2>/dev/null | grep -vE '^(backingFsBlockDev|metadata.db)$'" 2>/dev/null | sed 's/^/      /' || true
+  die "Không tìm thấy volume dữ liệu nào của project trên nguồn."
+fi
+
+log "Các volume sẽ chuyển (nguồn -> đích):"
+for k in "${SRC_KEYS[@]}"; do
+  if [ "${SRC_OF[$k]}" = "${DST_OF[$k]}" ]; then echo "    - ${SRC_OF[$k]}"
+  else echo "    - ${SRC_OF[$k]}  ->  ${DST_OF[$k]}   (đổi tên theo compose mới)"; fi
+done
+
+# Tổng dung lượng cần chuyển
+NEED_BYTES=0
+for k in "${SRC_KEYS[@]}"; do
+  b=$(src_bytes "${SRC_OF[$k]}")
+  NEED_BYTES=$(( NEED_BYTES + ${b:-0} ))
+done
+NEED_H=$(numfmt --to=iec "$NEED_BYTES" 2>/dev/null || echo "${NEED_BYTES}B")
+log "Tổng dung lượng volume cần chuyển: ~$NEED_H"
+
+# Volume đích đã có dữ liệu? (VD đã cài mới trên đích) -> rsync chồng lên sẽ hỏng MySQL
+RSYNC_DELETE=()
+for k in "${SRC_KEYS[@]}"; do
+  d="$VOL_ROOT/${DST_OF[$k]}/_data"
+  if [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]; then
+    warn "Volume đích '${DST_OF[$k]}' ĐÃ CÓ dữ liệu."
+    case "${OVERWRITE_DST:-ask}" in
+      yes) a=y;;
+      no)  a=n;;
+      *)   a=$(ask "Ghi đè các volume đích cho giống hệt nguồn (XOÁ file thừa ở đích)? (y/N)" "N");;
+    esac
+    [[ "$a" =~ ^[Yy] ]] || die "Dừng để tránh trộn dữ liệu. Xoá volume đích hoặc chạy lại với OVERWRITE_DST=yes."
+    RSYNC_DELETE=(--delete); break
+  fi
+done
 
 # --------------------- (Tuỳ chọn) Mở rộng đĩa trên đích ---------------------
 AVAIL_BYTES=$(df --output=avail -B1 / | tail -1 | tr -d ' ')
@@ -295,24 +403,26 @@ rsync -aHAX --numeric-ids -e "$RS_E" "$SRC_USER@$SRC_HOST:$APP_DIR/" "$APP_DIR/"
 ok "Đã copy app (compose, .env, config)."
 
 # --------------------------- rsync từng volume ------------------------------
-rsync_volume() {  # $1 = tên volume
-  local v="$1"
-  local src="$VOL_ROOT/$v/_data/"
-  local dst="$VOL_ROOT/$v/_data/"
-  docker volume create "$v" >/dev/null 2>&1 || true   # đăng ký volume với docker (giữ nguyên _data nếu đã có)
+rsync_volume() {  # $1 = khoá volume trong compose
+  local k="$1" sv="${SRC_OF[$1]}" dv="${DST_OF[$1]}"
+  local src="$VOL_ROOT/$sv/_data/"
+  local dst="$VOL_ROOT/$dv/_data/"
+  # đăng ký volume với docker, gắn label compose để 'up' không cảnh báo/không tạo volume trống khác
+  docker volume create --label "com.docker.compose.project=$PROJ" \
+         --label "com.docker.compose.volume=$k" "$dv" >/dev/null 2>&1 || true
   mkdir -p "$dst"
-  log "rsync volume $v …"
-  rsync -aHAX --numeric-ids --info=progress2 --partial -e "$RS_E" \
+  log "rsync volume $sv -> $dv …"
+  rsync -aHAX --numeric-ids --info=progress2 --partial "${RSYNC_DELETE[@]}" -e "$RS_E" \
         "$SRC_USER@$SRC_HOST:$src" "$dst"
   # Xác minh: pass 2 phải 0 byte, số file khớp
-  local moved; moved=$(rsync -aHAX --numeric-ids --stats -e "$RS_E" \
+  local moved; moved=$(rsync -aHAX --numeric-ids --stats "${RSYNC_DELETE[@]}" -e "$RS_E" \
         "$SRC_USER@$SRC_HOST:$src" "$dst" 2>/dev/null | awk -F': ' '/Number of regular files transferred/{print $2}' | tr -d ', ')
   local ns nd
-  ns=$(rcmd "find $src | wc -l"); nd=$(find "$dst" | wc -l)
-  if [ "${moved:-0}" = "0" ] && [ "$ns" = "$nd" ]; then ok "$v OK (số file: $nd, đồng bộ khớp)"
-  else warn "$v: pass2 chuyển thêm ${moved:-?} file, nguồn=$ns đích=$nd — kiểm tra lại!"; fi
+  ns=$(rcmd "find '$src' | wc -l"); nd=$(find "$dst" | wc -l)
+  if [ "${moved:-0}" = "0" ] && [ "$ns" = "$nd" ]; then ok "$dv OK (số file: $nd, đồng bộ khớp)"
+  else warn "$dv: pass2 chuyển thêm ${moved:-?} file, nguồn=$ns đích=$nd — kiểm tra lại!"; fi
 }
-for v in "${SRC_VOLS[@]}"; do rsync_volume "$v"; done
+for k in "${SRC_KEYS[@]}"; do rsync_volume "$k"; done
 
 # --------------- Start lại stack NGUỒN ngay sau khi copy xong ----------------
 restart_src_if_needed   # giảm tối đa downtime nguồn (không đợi tới khi đích boot xong)
